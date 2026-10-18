@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+</head>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>CSS & Authentication</title>
+  <style>
+      body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          background: #f4f4f9;
+      }
+      .auth-box {
+          background: #fff;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          max-width: 400px;
+          margin-bottom: 20px;
+      }
+      .auth-box input {
+          width: 100%;
+          padding: 8px;
+          margin: 8px 0;
+          box-sizing: border-box;
+      }
+      .auth-box button {
+          width: 100%;
+          padding: 10px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+      }
+      .auth-box button:hover { background: #0056b3; }
+      .switch {
+          text-align: center;
+          margin-top: 10px;
+          font-size: 14px;
+          color: #555;
+          cursor: pointer;
+      }
+      .switch span { color: #007bff; }
+  </style>
+</head>
+<link rel="stylesheet" href="style.CSS">
+<body>
+
+    <!-- Login / Signup Section -->
+    <div class="auth-box">
+        <h2 id="form-title">Login</h2>
+        <input type="email" id="email" placeholder="Email address">
+        <input type="password" id="password" placeholder="Password">
+        <button id="action-btn" onclick="handleAuth()">Login</button>
+        <div class="switch" onclick="toggleMode()">
+            <span id="switch-text">Account nahi hai? Sign up karein</span>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- Original Registration Form Section -->
+    <h1>REGISTRATION FORM</h1>
+    <h3>enter your name</h3>
+    <input type="text" placeholder="name">
+    <br><br>
+    
+    <h3>select your class</h3>
+    <label for="id1">
+       <input type="radio" value="IX" name="class" id="id1">IX
+       <input type="radio" value="X" name="class">X
+       <input type="radio" value="XI" name="class">XI
+       <input type="radio" value="XII" name="class">XII
+    </label> 
+    <br><br>
+    
+    <h3>ENTER YOUR ROLL NUMBER</h3>
+    <input type="number" id="n1" placeholder="roll number 1">
+    <input type="number" id="n2" placeholder="roll number 2"> 
+
+    <button onclick="sum()">Add</button>
+    <p id="result"></p>
+
+<!-- Firebase aur Auth Logic -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    // Yahan apni Firebase ki details dalein (Apni keys ko secure rakhein ya repo private rakhein!)
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    let isSignUp = false;
+
+    window.toggleMode = function() {
+        isSignUp = !isSignUp;
+        document.getElementById("form-title").innerText = isSignUp ? "Sign Up" : "Login";
+        document.getElementById("action-btn").innerText = isSignUp ? "Sign Up" : "Login";
+        document.getElementById("switch-text").innerText = isSignUp ? "Pehle se account hai? Login karein" : "Account nahi hai? Sign up karein";
+    }
+
+    window.handleAuth = function() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        if(!email || !password) {
+            alert("Kripya email aur password bharein!");
+            return;
+        }
+
+        if(isSignUp) {
+            createUserWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                alert("Account successfully ban gaya aur login ho gaye!");
+            })
+            .catch((error) => {
+                alert("Error: " + error.message);
+            });
+        } else {
+            signInWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                alert("Login successful!");
+            })
+            .catch((error) => {
+                alert("Login fail ho gaya: " + error.message);
+            });
+        }
+    }
+</script>
+
+<script>
+function sum() {
+    let a = Number(document.getElementById("n1").value);
+    let b = Number(document.getElementById("n2").value);
+
+    document.getElementById("result").innerHTML = a + b;
+}
+</script>
+  
+</body>
+
+</html>
