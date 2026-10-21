@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Tactical Shooter Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            font-family: Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        /* HUD (Heads-Up Display) similar to modern tactical shooters */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .minimap {
+            width: 90px;
+            height: 90px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+        }
+        .minimap-player {
+            width: 8px;
+            height: 8px;
+            background: #00ffcc;
+            position: absolute;
+            top: 41px;
+            left: 41px;
+            border-radius: 50%;
+        }
+        .match-info {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .score-blue { color: #3498db; }
+        .score-red { color: #e74c3c; }
+        .timer { font-size: 16px; letter-spacing: 1px; }
+
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: auto;
+        }
+        .weapon-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #e67e22;
+            padding: 10px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            width: 130px;
+        }
+        .weapon-name { font-size: 12px; color: #f1c40f; font-weight: bold; }
+        .ammo-count { font-size: 20px; font-weight: bold; margin-top: 4px; }
+        
+        .controls-hint {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .btn-shoot {
+            background: rgba(231, 76, 60, 0.8);
+            border-color: #c0392b;
+        }
+    </style>
+    <!-- Three.js Library Load -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="hud">
+        <div class="top-bar">
+            <div class="minimap">
+                <div class="minimap-player"></div>
+            </div>
+            <div class="match-info">
+                <span class="score-blue">0</span>
+                <span class="timer">00:45</span>
+                <span class="score-red">2</span>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="weapon-panel">
+                <div class="weapon-name">AK-47</div>
+                <div class="ammo-count">30 / 120</div>
+            </div>
+            <div class="controls-hint">
+                PC: W/A/S/D to Move, Click to Shoot<br>Mobile: Use on-screen buttons
+            </div>
+            <div class="action-buttons">
+                <button class="btn" onclick="reloadWeapon()">Reload</button>
+                <button class="btn btn-shoot" onclick="shootBullet()">FIRE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 3D GAME SETUP USING THREE.JS ---
+        let scene, camera, renderer, player, enemies = [];
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let ammo = 30;
+
+        function init() {
+            // 1. Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a24);
+            scene.fog = new THREE.FogExp2(0x1a1a24, 0.03);
+
+            // 2. Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 5);
+
+            // 3. Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // 4. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            scene.add(directionalLight);
+
+            // 5. Environment (Ground / Warehouse Floor & Walls)
+            const floorGeo = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x33333d, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Add some tactical obstacles (Boxes / Pillars)
+            const boxGeo = new THREE.BoxGeometry(3, 4, 3);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x555d6e });
+            
+            for (let i = 0; i < 6; i++) {
+                const box = new THREE.Mesh(boxGeo, boxMat);
+                box.position.set((Math.random() - 0.5) * 30, 2, (Math.random() - 0.5) * 30);
+                scene.add(box);
+            }
+
+            // 6. Create Target/Enemy dummy (similar to tactical targets)
+            createEnemy(-5, 1, -10);
+            createEnemy(8, 1, -15);
+
+            // 7. Event Listeners for PC Controls
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('keydown', onKeyDown, false);
+            document.addEventListener('keyup', onKeyUp, false);
+            window.addEventListener('click', shootBullet);
+
+            // Start Game Loop
+            animate();
+        }
+
+        function createEnemy(x, y, z) {
+            const enemyGeo = new THREE.BoxGeometry(1.2, 2.5, 0.8);
+            const enemyMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c }); // Red tactical dummy
+            const enemy = new THREE.Mesh(enemyGeo, enemyMat);
+            enemy.position.set(x, y, z);
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+
+        function shootBullet() {
+            if (ammo > 0) {
+                ammo--;
+                document.querySelector('.ammo-count').innerText = `${ammo} / 120`;
+                
+                // Simple recoil effect on camera
+                camera.position.y += 0.1;
+                setTimeout(() => camera.position.y -= 0.1, 50);
+            } else {
+                reloadWeapon();
+            }
+        }
+
+        function reloadWeapon() {
+            document.querySelector('.ammo-count').innerText = "Reloading...";
+            setTimeout(() => {
+                ammo = 30;
+                document.querySelector('.ammo-count').innerText = `${ammo} / 120`;
+            }, 1000);
+        }
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Main Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Player Movement Logic
+            const speed = 0.1;
+            if (moveForward) camera.translateZ(-speed);
+            if (moveBackward) camera.translateZ(speed);
+            if (moveLeft) camera.translateX(-speed);
+            if (moveRight) camera.translateX(speed);
+
+            // Keep player inside map boundaries
+            camera.position.x = Math.max(-45, Math.min(45, camera.position.x));
+            camera.position.z = Math.max(-45, Math.min(45, camera.position.z));
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize when page loads
+        window.onload = init;
+    </script>
+</body>
+  </html>
+  
